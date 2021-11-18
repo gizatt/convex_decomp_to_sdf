@@ -24,16 +24,21 @@ def do_visual_mesh_simplification(input_mesh_path, target_tris=1000):
     import cv2
     import imutils
 
-    mesh_minus_ext, mesh_ext = os.path.splitext(mesh_filename)
-    output_mesh_path = mesh_minus_ext + "_simple_vis" + mesh_minus_ext
+    # TODO(gizatt) What gives, open3d is trashing my models...
+    logging.warning("As of writing, this is sometimes creating terrible models.")
+
+    mesh_minus_ext, mesh_ext = os.path.splitext(input_mesh_path)
+    output_mesh_path = mesh_minus_ext + "_simple_vis" + mesh_ext
     
     mesh = open3d.io.read_triangle_mesh(input_mesh_path)
+    mesh.compute_vertex_normals()
     simplified_mesh = mesh.simplify_quadric_decimation(target_tris)
+    simplified_mesh.compute_vertex_normals()
     open3d.io.write_triangle_mesh(output_mesh_path, simplified_mesh)
     return output_mesh_path
 
 
-def do_collision_mesh_simplification(input_mesh_path, preview_with_trimesh=False,
+def do_collision_mesh_simplification(mesh, mesh_name, mesh_dir, preview_with_trimesh=False,
                                      maxhulls=12, maxNumVerticesPerCH=12, minVolumePerCH=0.001,
                                      resolution=100000, pca=1, **kwargs):
     '''
@@ -55,16 +60,12 @@ def do_collision_mesh_simplification(input_mesh_path, preview_with_trimesh=False
     '''
 
     # Create a subdir for the convex decomp parts.
-    dir_path, mesh_filename = os.path.split(input_mesh_path)
-    mesh_minus_ext, mesh_ext = os.path.splitext(mesh_filename)
-    mesh_parts_folder = mesh_minus_ext + "_parts"
-    out_dir = os.path.join(dir_path, mesh_parts_folder)
+    mesh_parts_folder = mesh_name + "_parts"
+    out_dir = os.path.join(mesh_dir, mesh_parts_folder)
     os.makedirs(out_dir, exist_ok=True)
 
-    # Load in mesh.
-    mesh = trimesh.load(input_mesh_path, skip_materials=True)
     if preview_with_trimesh:
-        logging.info("Showing mesh %s before decomp. Close window to proceed." % mesh_filename)
+        logging.info("Showing mesh before decomp. Close window to proceed.")
         mesh.show()
     try:
         convex_pieces = []
@@ -92,35 +93,31 @@ def do_collision_mesh_simplification(input_mesh_path, preview_with_trimesh=False
             scene.add_geometry(part)
         
         logging.info(
-            "Showing mesh %s convex decomp into %d parts. Close window to proceed."
-            % (mesh_filename, len(convex_pieces))
+            "Showing mesh convex decomp into %d parts. Close window to proceed."
+            % (len(convex_pieces))
         )
         scene.show()
 
     out_paths = []
     for k, part in enumerate(convex_pieces):
-        piece_name = '%s_convex_piece_%03d.obj' % (mesh_minus_ext, k)
+        piece_name = '%s_convex_piece_%03d.obj' % (mesh_name, k)
         full_path = os.path.join(out_dir, piece_name)
         trimesh.exchange.export.export_mesh(part, full_path)
         out_paths.append(full_path)
     return out_paths
 
 
-def calc_mesh_inertia(input_mesh_path, density=2000, scale=1.):
+def calc_mesh_inertia(mesh, density=2000):
     '''
     Given a mesh, calculates its total mass and inertia assuming
     a fixed density.
     Args:
-    - input_mesh_path: String path to mesh file to decompose. Only
-        'obj' format is currently tested, but other formats supported
-        by trimesh might work.
+    - mesh: A trimesh mesh.
     - density: Density of object in kg/m^3, used for inertia calculation.
     Returns: (mass, inertia)
     - out_paths: List of generated mesh file parts, in obj format.
     - inertia: total inertia of the input mesh.
     '''
-    mesh = trimesh.load(input_mesh_path, skip_materials=True)
-    mesh.apply_scale(scale)
     mesh.density = density
     I = mesh.moment_inertia
     return mesh.mass, mesh.moment_inertia
@@ -150,47 +147,49 @@ def create_sdf_with_convex_decomp(input_mesh_path, scale=1., do_visual_simplific
     mesh_minus_ext, _ = os.path.splitext(mesh_filename)
     sdf_path = os.path.join(dir_path, mesh_minus_ext + ".sdf")
 
+    # Load in and prescale mesh.
+    mesh = trimesh.load(input_mesh_path, skip_materials=True)
+    mesh.apply_scale(scale)
+    
     # Generate SDF file and the robot and link elements.
     robot_name = mesh_minus_ext
-    root_item = ET.Element('robot', name=robot_name, nsmap={'drake': 'drake.mit.edu'})
+    root_item = ET.Element('sdf', version="1.5", nsmap={'drake': 'drake.mit.edu'})
+    model_item = ET.SubElement(root_item, 'model', name=robot_name)
     link_name = "{}_body_link".format(robot_name)
-    link_item = ET.SubElement(root_item, "link", name=link_name)
+    link_item = ET.SubElement(model_item, "link", name=link_name)
     pose_item = ET.SubElement(link_item, "pose")
     pose_item.text = "0 0 0 0 0 0"
 
     # Set up object inertia.
-    mass, I = calc_mesh_inertia(input_mesh_path, density=density, scale=scale)
-    inertial = ET.SubElement(link_item, "inertia")
-    ET.SubElement(inertial, 'mass', value='{:.4E}'.format(mass))
-    I = [['{:.4E}'.format(y) for y in x]
-         for x in I]
-    ET.SubElement(
-        inertial,
-        'inertia',
-        ixx=I[0][0],
-        ixy=I[0][1],
-        ixz=I[0][2],
-        iyy=I[1][1],
-        iyz=I[1][2],
-        izz=I[2][2])
-
+    mass, I = calc_mesh_inertia(mesh, density=density)
+    inertial_item = ET.SubElement(link_item, "inertial")
+    mass_item = ET.SubElement(inertial_item, 'mass')
+    mass_item.text = '{:.4E}'.format(mass)
+    inertia_item = ET.SubElement(inertial_item, "inertia")
+    for i in range(3):
+        for j in range(i, 3):
+            item = ET.SubElement(inertia_item, "i" + "xyz"[i] + "xyz"[j])
+            item.text = '{:.4E}'.format(I[i, j])
 
     # Set up object visual geometry.
     if do_visual_simplification:
         visual_mesh_filename = do_visual_mesh_simplification(input_mesh_path, target_tris=target_tris)
     else:
-        visual_mesh_filename = mesh_minus_ext
+        visual_mesh_filename = input_mesh_path
+    logging.warn("%s -> %s", visual_mesh_filename, sdf_path)
+    visual_mesh_filename = os.path.relpath(visual_mesh_filename, dir_path)
     visual_item = ET.SubElement(link_item, "visual", name="visual")
     geometry_item = ET.SubElement(visual_item, 'geometry')
-    ET.SubElement(geometry_item, 'mesh', filename=visual_mesh_filename,
-                  scale="{:.4E} {:.4E} {:.4E}".format(scale,
-                                                      scale,
-                                                      scale))
+    mesh_item = ET.SubElement(geometry_item, 'mesh')
+    uri_item = ET.SubElement(mesh_item, "uri")
+    uri_item.text = visual_mesh_filename
+    scale_item = ET.SubElement(mesh_item, "scale")
+    scale_item.text = "{:.4E} {:.4E} {:.4E}".format(scale, scale, scale)
 
     # Set up object collision geometry.
-    collision_paths = do_collision_mesh_simplification(input_mesh_path, preview_with_trimesh=preview_with_trimesh, **kwargs)
+    collision_paths = do_collision_mesh_simplification(mesh, mesh_name=mesh_minus_ext, mesh_dir=dir_path, preview_with_trimesh=preview_with_trimesh, **kwargs)
     for k, new_model_path in enumerate(collision_paths):
-        new_model_path = os.path.relpath(new_model_path, sdf_path)
+        new_model_path = os.path.relpath(new_model_path, dir_path)
         # Create a new XML subtree for the collection of meshes
         # we just created. I *think* each convex piece needs
         # to be in its own collision tag, otherwise Drake

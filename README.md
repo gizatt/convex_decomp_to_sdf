@@ -2,7 +2,7 @@
 
 ![Convex decomp example](test_data/decomp_example.png)
 
-Given a (potentially nasty, nonconvex) mesh, automatically creates an [SDF](http://sdformat.org/) that describes that object. The visual geometry is pointed to the input mesh, and the collision geometry is pointed to a convex decomposition of the input mesh (as performed by [trimesh](https://github.com/mikedh/trimesh/) and [vhacd](https://github.com/kmammou/v-hacd/).
+Given a (potentially nasty, nonconvex) mesh, automatically creates an [SDF](http://sdformat.org/) file that describes that object. The visual geometry is pointed to the input mesh, and the collision geometry is pointed to a convex decomposition of the input mesh (as performed by [trimesh](https://github.com/mikedh/trimesh/) and [vhacd](https://github.com/kmammou/v-hacd/).
 
 This has been designed to interoperate well with [Drake](drake.mit.edu), but doesn't strictly need it.
 
@@ -17,12 +17,13 @@ and you need `testVHACD` on your `PATH`. I use [the procedure from this script](
 The visualization utility requires Drake.
 
 # Usage
+To perform the conversion (here, on an example mesh with a 1000x downscaling):
 
 ```
 python generate_sdf_from_mesh.py test_data/bowl_6p25in.obj --scale 0.001 --preview
 ```
 
-If you have Drake installed, you can inspect the resulting SDF. Use the menu at the right to show/hide the visual and collision mesh components.
+If you have Drake installed, you can inspect the resulting SDF (use the menu at the right to show/hide the visual and collision mesh components):
 
 ```
 python inspect_sdf_in_meshcat.py test_data/bowl_6p25in.sdf

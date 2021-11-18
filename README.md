@@ -2,7 +2,7 @@
 
 ![Convex decomp example](test_data/decomp_example.png)
 
-Given a (potentially nasty, nonconvex) mesh, automatically creates an [SDF](http://sdformat.org/) that describes that object.
+Given a (potentially nasty, nonconvex) mesh, automatically creates an [SDF](http://sdformat.org/) that describes that object. The visual geometry is pointed to the input mesh, and the collision geometry is pointed to a convex decomposition of the input mesh (as performed by [trimesh](https://github.com/mikedh/trimesh/) and [vhacd](https://github.com/kmammou/v-hacd/).
 
 This has been designed to interoperate well with [Drake](drake.mit.edu), but doesn't strictly need it.
 

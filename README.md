@@ -23,6 +23,9 @@ To perform the conversion (here, on an example mesh with a 1000x downscaling):
 python generate_sdf_from_mesh.py test_data/bowl_6p25in.obj --scale 0.001 --preview
 ```
 
+Use `--help` to see arguments; you can tune some VHACD parameters to influence the quality and complexity of the resulting decomposition. The defaults are tuned to create lightweight approximations of relative simple concave geometry; if you have more complex geometry, try increasing resolution, max # of hulls, and verts per hull.
+
+
 If you have Drake installed, you can inspect the resulting SDF (use the menu at the right to show/hide the visual and collision mesh components):
 
 ```

@@ -38,9 +38,7 @@ def do_visual_mesh_simplification(input_mesh_path, target_tris=1000):
     return output_mesh_path
 
 
-def do_collision_mesh_simplification(mesh, mesh_name, mesh_dir, preview_with_trimesh=False,
-                                     maxhulls=12, maxNumVerticesPerCH=12, minVolumePerCH=0.001,
-                                     resolution=100000, pca=1, **kwargs):
+def do_collision_mesh_simplification(mesh, mesh_name, mesh_dir, preview_with_trimesh=False, **kwargs):
     '''
     Given a mesh, performs a convex decomposition of it with
     trimesh _ vhacd, saving all the parts in a subfolder named
@@ -69,13 +67,8 @@ def do_collision_mesh_simplification(mesh, mesh_name, mesh_dir, preview_with_tri
         mesh.show()
     try:
         convex_pieces = []
-        for key, value in kwargs.items():
-            default_args
         convex_pieces_new = trimesh.decomposition.convex_decomposition(
-            mesh, maxhulls=maxhulls, maxNumVerticesPerCH=maxNumVerticesPerCH,
-            minVolumePerCH=minVolumePerCH, resolution=resolution, pca=pca,
-            **kwargs
-        )
+            mesh, **kwargs)
         if not isinstance(convex_pieces_new, list):
             convex_pieces_new = [convex_pieces_new]
         convex_pieces += convex_pieces_new
@@ -218,6 +211,14 @@ if __name__ == "__main__":
                         help="Do additional visual simplification of mesh. Requires open3d. Probably won't preserve materials.")
     parser.add_argument('--target_tris', type=int, default=1000,
                         help="If we do visual simplification, we decimate to this # of triangles.")
+    parser.add_argument('--resolution', type=int, default=100000,
+                        help="VHACD voxel resolution.")
+    parser.add_argument('--maxhulls', type=int, default=12,
+                        help="VHACD max # of convex hulls.")
+    parser.add_argument('--minVolumePerCH', type=float, default=0.001,
+                        help="VHACD min convex hull volume.")
+    parser.add_argument('--maxNumVerticesPerCH', type=int, default=12,
+                        help="VHACD voxel resolution.")
     parser.add_argument('--loglevel', type=str, default="INFO",
                         choices=["CRITICAL", "ERROR",  "WARNING", "INFO", "DEBUG"],
                         help='Log level.')
@@ -232,5 +233,7 @@ if __name__ == "__main__":
 
     create_sdf_with_convex_decomp(
         mesh_path, scale=args.scale, do_visual_simplification=args.do_visual_simplification,
-        target_tris=args.target_tris, preview_with_trimesh=args.preview, density=args.density
+        target_tris=args.target_tris, preview_with_trimesh=args.preview, density=args.density,
+        resolution=args.resolution, maxhulls=args.maxhulls, maxNumVerticesPerCH=args.maxNumVerticesPerCH,
+        minVolumePerCH=args.minVolumePerCH, pca=1
     )

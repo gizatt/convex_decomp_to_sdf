@@ -141,7 +141,7 @@ def create_sdf_with_convex_decomp(input_mesh_path, scale=1., do_visual_simplific
     sdf_path = os.path.join(dir_path, mesh_minus_ext + ".sdf")
 
     # Load in and prescale mesh.
-    mesh = trimesh.load(input_mesh_path, skip_materials=True)
+    mesh = trimesh.load(input_mesh_path, skip_materials=True, force="mesh")
     mesh.apply_scale(scale)
     
     # Generate SDF file and the robot and link elements.

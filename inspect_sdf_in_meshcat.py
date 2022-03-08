@@ -14,6 +14,7 @@ from pydrake.all import (
     MeshcatVisualizerParams,
     Parser,
     RigidTransform,
+    Rgba,
     Role,
     Simulator
 )
@@ -53,10 +54,14 @@ if __name__ == "__main__":
 
     # Add two visualizers with the same meshcat instance:
     #  one for visual, and one for collision.
-    visual_params = MeshcatVisualizerParams(role=Role.kIllustration, prefix="visual")
+    visual_params = MeshcatVisualizerParams(role=Role.kIllustration, prefix="visual",
+        default_color=Rgba(0.1, 0.6, 1.0, 0.3)
+    )
     visual_viz = MeshcatVisualizerCpp.AddToBuilder(
         builder, scene_graph, meshcat, visual_params)
-    collision_params = MeshcatVisualizerParams(role=Role.kProximity, prefix="collision")
+    collision_params = MeshcatVisualizerParams(
+        role=Role.kProximity, prefix="collision", default_color=Rgba(0.8, 0.5, 0.2, 0.3)
+    )
     collision_viz = MeshcatVisualizerCpp.AddToBuilder(
         builder, scene_graph, meshcat, collision_params)
 

@@ -67,6 +67,7 @@ def do_collision_mesh_simplification(mesh, mesh_name, mesh_dir, preview_with_tri
         mesh.show()
     try:
         convex_pieces = []
+        logging.info("Performing convex decomposition. If this runs too long, try decreasing --resolution.")
         convex_pieces_new = trimesh.decomposition.convex_decomposition(
             mesh, **kwargs)
         if not isinstance(convex_pieces_new, list):
